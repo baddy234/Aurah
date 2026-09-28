@@ -136,12 +136,33 @@ fun AuraBrandLogo(
     logoSize: Dp = 42.dp,
     isVideoTheme: Boolean = false
 ) {
+    val glowColor = if (isVideoTheme) {
+        Color(0xFF00F2FE)
+    } else {
+        Color(0xFFA855F7)
+    }
+
     Box(
         modifier = modifier
             .size(logoSize)
             .testTag("aura_brand_logo"),
         contentAlignment = Alignment.Center
     ) {
+        // Subtle ambient glow behind logo
+        Box(
+            modifier = Modifier
+                .size(logoSize * 1.15f)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor.copy(alpha = 0.35f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
         Image(
             painter = painterResource(id = R.drawable.img_app_logo),
             contentDescription = "Aura App Logo",

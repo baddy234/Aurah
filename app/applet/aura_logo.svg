@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGlow" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#1E1B4B" stop-opacity="0.9"/>
+      <stop offset="45%" stop-color="#0F172A" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#07090E" stop-opacity="1.0"/>
+    </radialGradient>
+
+    <!-- Aura Ambient Radial Glow -->
+    <radialGradient id="auraGlowPurple" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.6"/>
+      <stop offset="50%" stop-color="#6366F1" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="auraGlowCyan" cx="35%" cy="40%" r="45%">
+      <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glass Surface Gradient -->
+    <linearGradient id="glassFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="40%" stop-color="#6366F1" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="glassBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.8"/>
+      <stop offset="45%" stop-color="#C084FC" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#F43F5E" stop-opacity="0.7"/>
+    </linearGradient>
+
+    <!-- A-Emblem Left Stroke (Cyan to Purple) -->
+    <linearGradient id="leftStroke" x1="0%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#00F2FE"/>
+      <stop offset="40%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+
+    <!-- A-Emblem Right Stroke (Purple to Neon Pink) -->
+    <linearGradient id="rightStroke" x1="50%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8"/>
+      <stop offset="60%" stop-color="#C084FC"/>
+      <stop offset="100%" stop-color="#F43F5E"/>
+    </linearGradient>
+
+    <!-- Sonic Wave Gradient -->
+    <linearGradient id="sonicWave" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F2FE"/>
+      <stop offset="35%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#A855F7"/>
+      <stop offset="75%" stop-color="#EC4899"/>
+      <stop offset="100%" stop-color="#F43F5E"/>
+    </linearGradient>
+
+    <!-- Top Apex Glow -->
+    <linearGradient id="apexGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+
+    <!-- Core Ring Gradient -->
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FE" stop-opacity="0.7"/>
+      <stop offset="50%" stop-color="#A855F7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#EC4899" stop-opacity="0.7"/>
+    </linearGradient>
+
+    <!-- Drop Shadows / Glows -->
+    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="16" result="blur1"/>
+      <feGaussianBlur stdDeviation="32" result="blur2"/>
+      <feMerge>
+        <feMergeNode in="blur2"/>
+        <feMergeNode in="blur1"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="intenseGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="24" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base Dark Canvas -->
+  <rect width="1024" height="1024" rx="228" fill="url(#bgGlow)"/>
+
+  <!-- Ambient Glow Spheres -->
+  <circle cx="512" cy="490" r="380" fill="url(#auraGlowPurple)"/>
+  <circle cx="420" cy="420" r="280" fill="url(#auraGlowCyan)"/>
+
+  <!-- Outer Sound Pulse Orbit Rings -->
+  <circle cx="512" cy="512" r="390" fill="none" stroke="url(#ringGrad)" stroke-width="2" stroke-dasharray="12 18" opacity="0.35"/>
+  <circle cx="512" cy="512" r="340" fill="none" stroke="url(#glassBorder)" stroke-width="3" stroke-dasharray="8 24 16 12" opacity="0.45"/>
+
+  <!-- Glassmorphic Shield Plate -->
+  <rect x="180" y="180" width="664" height="664" rx="160" fill="url(#glassFill)" stroke="url(#glassBorder)" stroke-width="4.5" filter="url(#intenseGlow)"/>
+
+  <!-- Inner Ambient Reflection Line -->
+  <rect x="196" y="196" width="632" height="632" rx="148" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-opacity="0.15"/>
+
+  <!-- Center Aura Icon Structure -->
+  <!-- Ambient Musical Equalizer / Sonic Waveform in letter A crossbar -->
+  <g filter="url(#neonGlow)">
+    <!-- Left Leg of 'A' -->
+    <path d="M 512 268 L 330 710 C 324 725, 336 742, 353 742 L 405 742 C 418 742, 430 733, 435 720 L 512 524 L 542 600 L 485 600 L 512 530 Z" fill="url(#leftStroke)"/>
+
+    <!-- Right Leg of 'A' with Play Glyph Dynamic Wedge -->
+    <path d="M 512 268 L 694 710 C 700 725, 688 742, 671 742 L 619 742 C 606 742, 594 733, 589 720 L 512 524 Z" fill="url(#rightStroke)"/>
+
+    <!-- Apex Cap & Glow -->
+    <circle cx="512" cy="275" r="26" fill="url(#apexGlow)"/>
+    <circle cx="512" cy="275" r="14" fill="#FFFFFF"/>
+
+    <!-- Resonant Sonic Soundwave Bars forming the crossbar of A -->
+    <!-- Bar 1 (Leftmost) -->
+    <rect x="364" y="582" width="14" height="40" rx="7" fill="#00F2FE" opacity="0.9"/>
+    <!-- Bar 2 -->
+    <rect x="394" y="562" width="14" height="80" rx="7" fill="#38BDF8"/>
+    <!-- Bar 3 -->
+    <rect x="424" y="542" width="14" height="120" rx="7" fill="#818CF8"/>
+    <!-- Bar 4 (Center - Play triangle / Resonant node) -->
+    <polygon points="492,572 492,632 546,602" fill="#FFFFFF"/>
+    <!-- Bar 5 -->
+    <rect x="586" y="542" width="14" height="120" rx="7" fill="#C084FC"/>
+    <!-- Bar 6 -->
+    <rect x="616" y="562" width="14" height="80" rx="7" fill="#EC4899"/>
+    <!-- Bar 7 (Rightmost) -->
+    <rect x="646" y="582" width="14" height="40" rx="7" fill="#F43F5E" opacity="0.9"/>
+  </g>
+
+  <!-- Central Sonic Core Orb -->
+  <circle cx="512" cy="450" r="12" fill="#FFFFFF" filter="url(#neonGlow)"/>
+  <circle cx="512" cy="450" r="6" fill="#00F2FE"/>
+
+  <!-- Sparkling Audio Flares -->
+  <circle cx="680" cy="330" r="4" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="340" cy="360" r="5" fill="#38BDF8" opacity="0.75"/>
+  <circle cx="690" cy="670" r="5" fill="#EC4899" opacity="0.7"/>
+  <circle cx="320" cy="650" r="4" fill="#00F2FE" opacity="0.7"/>
+</svg>
