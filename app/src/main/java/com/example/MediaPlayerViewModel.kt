@@ -1,6 +1,7 @@
 package com.example
 
 import android.app.Application
+import android.content.Context
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -449,7 +450,30 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
         controllerFuture?.addListener(
             {
                 player = controllerFuture?.get()
-                _state.update { it.copy(isPlayerReady = player != null) }
+                player?.let { p ->
+                    val isPlaying = p.isPlaying
+                    val currentItem = p.currentMediaItem
+                    val trackId = currentItem?.mediaId
+                    val currentTrack = _state.value.allTracks.find { it.id == trackId }
+                        ?: _state.value.tracks.find { it.id == trackId }
+                        ?: _state.value.deviceTracks.find { it.id == trackId }
+                        ?: _state.value.currentTrack
+
+                    _state.update {
+                        it.copy(
+                            isPlayerReady = true,
+                            isPlaying = isPlaying,
+                            currentTrack = currentTrack ?: it.currentTrack,
+                            durationMs = p.duration.coerceAtLeast(0L),
+                            mediaMetadata = currentItem?.mediaMetadata ?: p.mediaMetadata,
+                            repeatMode = p.repeatMode,
+                            shuffleModeEnabled = p.shuffleModeEnabled
+                        )
+                    }
+                    if (isPlaying) {
+                        startProgressTimer()
+                    }
+                }
                 player?.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
                         _state.update { it.copy(isPlaying = isPlaying) }
@@ -1209,6 +1233,12 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     } else {
                         val fetchedText = result.syncedLyrics ?: result.plainLyrics ?: ""
                         if (fetchedText.isNotBlank()) {
+                            val currentOverride = _state.value.trackOverrides.find { it.trackId == targetTrack.id }
+                            val title = currentOverride?.title ?: targetTrack.title
+                            val artist = currentOverride?.artist ?: targetTrack.artist
+                            viewModelScope.launch {
+                                repository.insertOverride(com.example.db.TrackOverride(targetTrack.id, title, artist, fetchedText))
+                            }
                             prefs.edit().putString("lyrics_${targetTrack.id}", fetchedText).apply()
                             prefs.edit().putString(targetTrack.id, fetchedText).apply()
                             val parsed = LrcParser.parse(fetchedText)
@@ -1221,9 +1251,9 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                                     activeLyricIndex = activeIdx,
                                     isFetchingLyrics = false,
                                     lyricsFetchMessage = if (result.syncedLyrics != null) {
-                                        "Synchronized lyrics loaded from LRCLIB"
+                                        "Synchronized lyrics loaded and saved to song ✓"
                                     } else {
-                                        "Plain text lyrics loaded (no sync timestamps)"
+                                        "Plain text lyrics loaded and saved to song ✓"
                                     }
                                 )
                             }
@@ -1276,7 +1306,32 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 lyricsFetchMessage = if (parsed.isNotEmpty()) "Custom synchronized lyrics saved" else "Lyrics saved"
             ) 
         }
+    }
 
+    fun saveCurrentLyrics() {
+        val target = _state.value.editingLyricsTrack ?: _state.value.currentTrack ?: return
+        val text = _state.value.currentLyrics
+        if (text.isNotBlank()) {
+            saveLyrics(text)
+            _state.update {
+                it.copy(lyricsFetchMessage = "Lyrics permanently saved to song library ✓")
+            }
+        }
+    }
+
+    fun exportCurrentLyrics(context: Context) {
+        val target = _state.value.editingLyricsTrack ?: _state.value.currentTrack ?: return
+        val text = _state.value.currentLyrics
+        if (text.isBlank()) {
+            _state.update { it.copy(lyricsFetchMessage = "No lyrics available to export") }
+            return
+        }
+        val result = LrcExporter.exportLrcFile(context, target.title, target.artist, text)
+        result.onSuccess { msg ->
+            _state.update { it.copy(lyricsFetchMessage = "$msg ✓") }
+        }.onFailure { err ->
+            _state.update { it.copy(lyricsFetchMessage = "Export failed: ${err.message}") }
+        }
     }
     fun toggleAutoScrollLyrics(enabled: Boolean) {
         prefs.edit().putBoolean("lyrics_auto_scroll", enabled).apply()
@@ -1936,7 +1991,7 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
             val scannedList = mutableListOf<Track>()
             val colors = listOf("FF3B82F6", "FF10B981", "FF8B5CF6", "FFF59E0B", "FFEC4899", "FF06B6D4")
 
-            // 1. Query Audio files
+            // 1. Query Audio files via high-speed MediaStore cursor (instant metadata without file blocking)
             try {
                 val audioUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
                 val audioProjection = arrayOf(
@@ -1986,9 +2041,9 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                             ContentUris.withAppendedId(
                                 Uri.parse("content://media/external/audio/albumart"),
                                 albumId
-                            )
+                            ).toString()
                         } else null
-                        val resolvedArtwork = albumArtUri?.toString() ?: CoverImageProvider.extractEmbeddedArtwork(context, contentUri, "local_media_$id", false) ?: CoverImageProvider.getFallbackCover(title, artist)
+                        val resolvedArtwork = albumArtUri ?: CoverImageProvider.getFallbackCover(title, artist)
                         val color = colors[((id.hashCode() and 0x7FFFFFFF) % colors.size)]
 
                         scannedList.add(
@@ -2012,7 +2067,7 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 e.printStackTrace()
             }
 
-            // 2. Query Video files
+            // 2. Query Video files via high-speed MediaStore cursor
             try {
                 val videoUri = MediaStore.Video.Media.EXTERNAL_CONTENT_URI
                 val videoProjection = arrayOf(
@@ -2066,7 +2121,7 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         } else "/storage/emulated/0/$detectedFolder"
 
                         val contentUri = ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id)
-                        val videoArt = CoverImageProvider.extractEmbeddedArtwork(context, contentUri, "local_video_$id", true) ?: CoverImageProvider.getVideoFallbackCover(rawTitle, "Local Video")
+                        val videoArt = contentUri.toString()
                         val color = colors[((id.hashCode() and 0x7FFFFFFF) % colors.size)]
                         val resStr = if (width > 0 && height > 0) "${width}x${height}" else "HD Video"
 
@@ -2094,31 +2149,35 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 e.printStackTrace()
             }
 
-            // 3. Scan physical folders on storage if available
-            try {
-                val publicDirs = listOfNotNull(
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
-                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PODCASTS)
-                )
-                val audioExts = setOf("mp3", "m4a", "flac", "wav", "ogg", "aac", "opus")
-                val videoExts = setOf("mp4", "mkv", "webm", "avi", "mov", "3gp", "ts")
+            // 3. Fallback: only scan physical directories if MediaStore returned 0 items
+            if (scannedList.isEmpty()) {
+                try {
+                    val publicDirs = listOfNotNull(
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM),
+                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PODCASTS)
+                    )
+                    val audioExts = setOf("mp3", "m4a", "flac", "wav", "ogg", "aac", "opus")
+                    val videoExts = setOf("mp4", "mkv", "webm", "avi", "mov", "3gp", "ts")
 
-                for (dir in publicDirs) {
-                    if (dir.exists() && dir.canRead()) {
-                        val files = dir.listFiles() ?: continue
-                        for (file in files) {
-                            if (file.isFile) {
-                                val ext = file.extension.lowercase()
-                                val isAudio = ext in audioExts
-                                val isVid = ext in videoExts
-                                if (isAudio || isVid) {
-                                    val uriStr = Uri.fromFile(file).toString()
-                                    if (scannedList.none { it.mediaUrl == uriStr || it.mediaUrl.contains(file.name) }) {
+                    for (dir in publicDirs) {
+                        if (dir.exists() && dir.canRead()) {
+                            val files = dir.listFiles() ?: continue
+                            for (file in files) {
+                                if (file.isFile) {
+                                    val ext = file.extension.lowercase()
+                                    val isAudio = ext in audioExts
+                                    val isVid = ext in videoExts
+                                    if (isAudio || isVid) {
+                                        val uriStr = Uri.fromFile(file).toString()
                                         val color = colors[((file.name.hashCode() and 0x7FFFFFFF) % colors.size)]
-                                        val fsArt = CoverImageProvider.extractEmbeddedArtwork(context, Uri.fromFile(file), "local_fs_${file.name.hashCode()}", isVid) ?: (if (isVid) CoverImageProvider.getVideoFallbackCover(file.nameWithoutExtension, "Local Video") else CoverImageProvider.getFallbackCover(file.nameWithoutExtension, "Local Audio"))
+                                        val fsArt = if (isVid) {
+                                            CoverImageProvider.getVideoFallbackCover(file.nameWithoutExtension, "Local Video")
+                                        } else {
+                                            CoverImageProvider.getFallbackCover(file.nameWithoutExtension, "Local Audio")
+                                        }
                                         scannedList.add(
                                             Track(
                                                 id = "local_fs_${file.name.hashCode()}",
@@ -2139,9 +2198,9 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
 
             withContext(Dispatchers.Main) {
@@ -2226,7 +2285,7 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
                     val trackId = "local_saf_${uri.hashCode().toLong() and 0xFFFFFFFFL}"
                     val isVid = isVideoFile || width > 0 || height > 0
-                    val importedArt = CoverImageProvider.extractEmbeddedArtwork(context, uri, trackId, isVid) ?: (if (isVid) CoverImageProvider.getVideoFallbackCover(title, artist) else CoverImageProvider.getFallbackCover(title, artist))
+                    val importedArt = if (isVid) uri.toString() else CoverImageProvider.getFallbackCover(title, artist)
                     val color = colors[((uri.hashCode() and 0x7FFFFFFF) % colors.size)]
 
                     importedList.add(

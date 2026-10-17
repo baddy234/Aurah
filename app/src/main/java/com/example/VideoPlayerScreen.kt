@@ -68,6 +68,8 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Audiotrack
 import android.content.Context
@@ -163,6 +165,8 @@ fun VideoPlayerModal(
     onSeek: (Float) -> Unit,
     onSeekRelative: (Long) -> Unit,
     onSetPlaybackSpeed: (Float) -> Unit,
+    onSkipPrevious: () -> Unit = {},
+    onSkipNext: () -> Unit = {},
     onOpenVideoSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -235,6 +239,8 @@ fun VideoPlayerModal(
                 onSeek = onSeek,
                 onSeekRelative = onSeekRelative,
                 onSetPlaybackSpeed = onSetPlaybackSpeed,
+                onSkipPrevious = onSkipPrevious,
+                onSkipNext = onSkipNext,
                 onOpenVideoSettings = onOpenVideoSettings,
                 modifier = Modifier.fillMaxSize()
             )
@@ -262,6 +268,8 @@ fun VideoPlayerContent(
     onSeek: (Float) -> Unit,
     onSeekRelative: (Long) -> Unit,
     onSetPlaybackSpeed: (Float) -> Unit,
+    onSkipPrevious: () -> Unit = {},
+    onSkipNext: () -> Unit = {},
     onOpenVideoSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -275,20 +283,20 @@ fun VideoPlayerContent(
     var sleepTimerMinutes by remember { mutableStateOf(0) }
     var swipeGesturesEnabled by remember { mutableStateOf(true) }
 
-    var isFullyFullscreen by remember { mutableStateOf(isFullscreen) }
+    var isFullyFullscreen by remember { mutableStateOf(true) }
 
-    LaunchedEffect(isFullscreen) {
-        isFullyFullscreen = isFullscreen
+    LaunchedEffect(Unit) {
+        isFullyFullscreen = true
     }
 
     val view = LocalView.current
     val activity = LocalContext.current as? Activity
-    DisposableEffect(view, controlsVisible, isFullyFullscreen) {
+    DisposableEffect(view, isFullyFullscreen) {
         val dialogWindow = (view.parent as? DialogWindowProvider)?.window ?: activity?.window
         if (dialogWindow != null) {
             val insetsController = WindowCompat.getInsetsController(dialogWindow, dialogWindow.decorView)
             insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            if (isFullyFullscreen && !controlsVisible) {
+            if (isFullyFullscreen) {
                 insetsController.hide(WindowInsetsCompat.Type.systemBars())
             } else {
                 insetsController.show(WindowInsetsCompat.Type.systemBars())
@@ -495,7 +503,9 @@ fun VideoPlayerContent(
                             VideoResizeMode.FILL -> "Fill Screen (Edge-to-Edge)"
                             VideoResizeMode.STRETCH -> "Stretch to Display"
                         }
-                    }
+                    },
+                    onSkipPrevious = onSkipPrevious,
+                    onSkipNext = onSkipNext
                 )
             }
         } else {
@@ -752,7 +762,9 @@ fun VideoPlayerContent(
                                 }
                                 currentResizeMode = nextMode
                                 screenModeNotification = nextMode.title
-                            }
+                            },
+                            onSkipPrevious = onSkipPrevious,
+                            onSkipNext = onSkipNext
                         )
                     }
                 }
@@ -1393,7 +1405,9 @@ private fun BoxScope.VideoOnCanvasControls(
     onPlayPause: () -> Unit,
     onSliderChange: (Float) -> Unit,
     onSliderFinished: () -> Unit,
-    onCycleResizeMode: () -> Unit
+    onCycleResizeMode: () -> Unit,
+    onSkipPrevious: () -> Unit = {},
+    onSkipNext: () -> Unit = {}
 ) {
     // 1. TOP HEADER OVERLAY (Back, Clean Title & Options)
     AnimatedVisibility(
@@ -1575,8 +1589,25 @@ private fun BoxScope.VideoOnCanvasControls(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 44.dp else 28.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 36.dp else 22.dp)
         ) {
+            // Skip Previous
+            IconButton(
+                onClick = onSkipPrevious,
+                modifier = Modifier
+                    .size(if (isLandscape) 52.dp else 46.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.SkipPrevious,
+                    contentDescription = "Previous Video",
+                    tint = Color.White,
+                    modifier = Modifier.size(if (isLandscape) 26.dp else 22.dp)
+                )
+            }
+
             // Rewind 10s
             IconButton(
                 onClick = { onSeekRelative(-10000L) },
@@ -1624,6 +1655,23 @@ private fun BoxScope.VideoOnCanvasControls(
                 Icon(
                     imageVector = Icons.Filled.Forward10,
                     contentDescription = "Forward 10s",
+                    tint = Color.White,
+                    modifier = Modifier.size(if (isLandscape) 26.dp else 22.dp)
+                )
+            }
+
+            // Skip Next
+            IconButton(
+                onClick = onSkipNext,
+                modifier = Modifier
+                    .size(if (isLandscape) 52.dp else 46.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .border(1.dp, Color.White.copy(alpha = 0.22f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.SkipNext,
+                    contentDescription = "Next Video",
                     tint = Color.White,
                     modifier = Modifier.size(if (isLandscape) 26.dp else 22.dp)
                 )

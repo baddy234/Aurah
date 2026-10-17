@@ -26,8 +26,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Timer
@@ -81,6 +83,7 @@ fun LyricsSearchModalDialog(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val focusManager = LocalFocusManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     var searchQuery by remember(displayTitle, displayArtist) {
         mutableStateOf(if (displayArtist.isNotBlank() && !displayArtist.equals("Device Audio", ignoreCase = true)) "$displayTitle $displayArtist" else displayTitle)
@@ -389,14 +392,28 @@ fun LyricsSearchModalDialog(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
                             onClick = { selectedCandidateForPreview = null },
-                            modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Back to Results")
+                            Text("Back")
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val text = cand.syncedLyrics ?: cand.plainLyrics ?: ""
+                                val res = LrcExporter.exportLrcFile(context, cand.trackName, cand.artistName, text)
+                                res.onSuccess { msg -> android.widget.Toast.makeText(context, "$msg ✓", android.widget.Toast.LENGTH_LONG).show() }
+                                    .onFailure { android.widget.Toast.makeText(context, "Export failed: ${it.message}", android.widget.Toast.LENGTH_SHORT).show() }
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Export .lrc")
                         }
 
                         Button(
@@ -407,9 +424,9 @@ fun LyricsSearchModalDialog(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Filled.BookmarkAdd, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Apply to Song")
+                            Text("Save to Song", fontWeight = FontWeight.Bold)
                         }
                     }
                 }

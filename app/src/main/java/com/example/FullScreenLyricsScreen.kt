@@ -33,10 +33,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.GraphicEq
@@ -144,6 +146,14 @@ fun FullScreenLyricsScreen(
         if (isAutoScrollLyrics && lyricsViewMode == LyricsViewMode.SYNCED && activeLyricIndex >= 0 && syncedLyrics.isNotEmpty()) {
             val targetScroll = (activeLyricIndex - 2).coerceAtLeast(0)
             listState.animateScrollToItem(targetScroll)
+        }
+    }
+
+    // Automatically close the toast notification after 3.5 seconds
+    LaunchedEffect(lyricsFetchMessage, isFetchingLyrics) {
+        if (lyricsFetchMessage != null && !isFetchingLyrics && !lyricsFetchMessage.endsWith("...")) {
+            kotlinx.coroutines.delay(3500)
+            onClearLyricsMessage()
         }
     }
 
@@ -416,17 +426,54 @@ fun FullScreenLyricsScreen(
                                 } else {
                                     Spacer(Modifier.weight(1f))
                                 }
-                                TextButton(
-                                    onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        val clip = ClipData.newPlainText("Song Lyrics", lyrics)
-                                        clipboard.setPrimaryClip(clip)
-                                        Toast.makeText(context, "Lyrics copied to clipboard", Toast.LENGTH_SHORT).show()
-                                    }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Copy Lyrics", style = MaterialTheme.typography.labelSmall)
+                                    FilledTonalButton(
+                                        onClick = {
+                                            onSaveLyrics(lyrics)
+                                            Toast.makeText(context, "Lyrics saved to song library ✓", Toast.LENGTH_SHORT).show()
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Filled.BookmarkAdd, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Save", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+
+                                    OutlinedButton(
+                                        onClick = {
+                                            val res = LrcExporter.exportLrcFile(context, displayTitle, displayArtist, lyrics)
+                                            res.onSuccess { msg -> Toast.makeText(context, msg, Toast.LENGTH_LONG).show() }
+                                                .onFailure { Toast.makeText(context, "Export failed: ${it.message}", Toast.LENGTH_SHORT).show() }
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Export .lrc", style = MaterialTheme.typography.labelSmall)
+                                    }
+
+                                    TextButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            val clip = ClipData.newPlainText("Song Lyrics", lyrics)
+                                            clipboard.setPrimaryClip(clip)
+                                            Toast.makeText(context, "Lyrics copied to clipboard", Toast.LENGTH_SHORT).show()
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(28.dp)
+                                    ) {
+                                        Icon(Icons.Filled.ContentCopy, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Spacer(Modifier.width(2.dp))
+                                        Text("Copy", style = MaterialTheme.typography.labelSmall)
+                                    }
                                 }
                             }
                         }
@@ -451,41 +498,64 @@ fun FullScreenLyricsScreen(
                 }
 
                 // Notification / status banner
-                if (lyricsFetchMessage != null) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer
-                        )
-                    ) {
-                        Row(
+                AnimatedVisibility(
+                    visible = lyricsFetchMessage != null,
+                    enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(250)),
+                    exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(250))
+                ) {
+                    if (lyricsFetchMessage != null) {
+                        Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = lyricsFetchMessage,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.weight(1f),
-                                                    textAlign = alignText
+                                .padding(vertical = 6.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
                             )
-                            IconButton(
-                                onClick = onClearLyricsMessage,
-                                modifier = Modifier.size(24.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Close,
-                                    contentDescription = "Dismiss",
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(14.dp)
+                                Text(
+                                    text = lyricsFetchMessage,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = alignText
                                 )
+                                if (lyrics.isNotBlank()) {
+                                    Spacer(Modifier.width(8.dp))
+                                    Button(
+                                        onClick = {
+                                            onSaveLyrics(lyrics)
+                                            Toast.makeText(context, "Lyrics permanently saved to song library ✓", Toast.LENGTH_SHORT).show()
+                                        },
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(28.dp),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(Icons.Filled.BookmarkAdd, contentDescription = null, modifier = Modifier.size(12.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Save to Song", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = onClearLyricsMessage,
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Close,
+                                        contentDescription = "Dismiss",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
                             }
                         }
                     }

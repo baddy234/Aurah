@@ -1,6 +1,8 @@
 package com.example
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
 
 import android.content.pm.PackageManager
 import android.os.Build
@@ -123,7 +125,6 @@ import androidx.media3.common.MediaMetadata
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.ui.FrostedGlassDefaults
-import com.example.ui.ThemeToggleButton
 import com.example.ui.frostedGlass
 import com.example.ui.theme.SurfaceContainer
 import com.example.ui.theme.SurfaceGlass
@@ -136,33 +137,12 @@ fun AuraBrandLogo(
     logoSize: Dp = 42.dp,
     isVideoTheme: Boolean = false
 ) {
-    val glowColor = if (isVideoTheme) {
-        Color(0xFF00F2FE)
-    } else {
-        Color(0xFFA855F7)
-    }
-
     Box(
         modifier = modifier
             .size(logoSize)
             .testTag("aura_brand_logo"),
         contentAlignment = Alignment.Center
     ) {
-        // Subtle ambient glow behind logo
-        Box(
-            modifier = Modifier
-                .size(logoSize * 1.15f)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            glowColor.copy(alpha = 0.35f),
-                            Color.Transparent
-                        )
-                    ),
-                    shape = CircleShape
-                )
-        )
-
         Image(
             painter = painterResource(id = R.drawable.img_app_logo),
             contentDescription = "Aura App Logo",
@@ -231,11 +211,6 @@ fun VideoLibraryContent(
                         tint = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                ThemeToggleButton(
-                    isDark = state.isDarkTheme,
-                    onToggle = { viewModel.toggleTheme() },
-                    onLongClick = { viewModel.openThemeModal() }
-                )
 
                 IconButton(
                     onClick = { viewModel.openSettings(SettingsSubPage.VIDEO) },
@@ -268,12 +243,16 @@ fun LibraryContent(
     getTitleArtist: (Track, MediaMetadata?) -> Pair<String, String>,
     modifier: Modifier = Modifier
 ) {
+    var selectedStorageFolderId by rememberSaveable { mutableStateOf<String?>(null) }
+    val isFolderOpen = state.selectedLibraryTab == LibraryTab.STORAGE && selectedStorageFolderId != null
+
     Column(
         modifier = modifier
             .fillMaxSize()
     ) {
-        // Clean Top Navigation Header
-        Row(
+        if (!isFolderOpen) {
+            // Clean Top Navigation Header
+            Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 4.dp),
@@ -309,12 +288,6 @@ fun LibraryContent(
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 var showOverflow by remember { mutableStateOf(false) }
-
-                ThemeToggleButton(
-                    isDark = state.isDarkTheme,
-                    onToggle = { viewModel.toggleTheme() },
-                    onLongClick = { viewModel.openThemeModal() }
-                )
 
                 IconButton(
                     onClick = {
@@ -409,71 +382,76 @@ fun LibraryContent(
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        
+            // Scrollable Tabs: Songs, Storage, Playlist, Artists, History
+            val tabs = LibraryTab.values()
+            val selectedTabIndex = tabs.indexOf(state.selectedLibraryTab).coerceAtLeast(0)
 
-        // Scrollable Tabs: Songs, Storage, Playlist, Artists, History
-        val tabs = LibraryTab.values()
-        val selectedTabIndex = tabs.indexOf(state.selectedLibraryTab).coerceAtLeast(0)
-
-        TabRow(
-            selectedTabIndex = selectedTabIndex,
-            containerColor = Color.Transparent,
-            contentColor = MaterialTheme.colorScheme.primary,
-            divider = {},
-            indicator = { tabPositions ->
-                if (selectedTabIndex < tabPositions.size) {
-                    Box(
-                        Modifier
-                            .tabIndicatorOffset(tabPositions[selectedTabIndex])
-                            .height(2.dp)
-                            .padding(horizontal = 4.dp)
-                            .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            tabs.forEach { tab ->
-                val isSelected = state.selectedLibraryTab == tab
-                val icon = when (tab) {
-                    LibraryTab.SONGS -> Icons.Rounded.MusicNote
-                    LibraryTab.STORAGE -> Icons.Rounded.FolderOpen
-                    LibraryTab.PLAYLIST -> Icons.Filled.QueueMusic
-                    LibraryTab.ARTISTS -> Icons.Filled.Person
-                    LibraryTab.HISTORY -> Icons.Filled.History
-                }
-                Tab(
-                    selected = isSelected,
-                    onClick = { viewModel.selectLibraryTab(tab) },
-                    modifier = Modifier.weight(1f),
-                    text = {
-                        Text(
-                            text = tab.title,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            fontSize = 10.sp,
-                            maxLines = 1,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = tab.title,
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.size(14.dp)
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.primary,
+                divider = {},
+                indicator = { tabPositions ->
+                    if (selectedTabIndex < tabPositions.size) {
+                        Box(
+                            Modifier
+                                .tabIndicatorOffset(tabPositions[selectedTabIndex])
+                                .height(2.dp)
+                                .padding(horizontal = 4.dp)
+                                .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
+                                .background(MaterialTheme.colorScheme.primary)
                         )
                     }
-                )
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                tabs.forEach { tab ->
+                    val isSelected = state.selectedLibraryTab == tab
+                    val icon = when (tab) {
+                        LibraryTab.SONGS -> Icons.Rounded.MusicNote
+                        LibraryTab.STORAGE -> Icons.Rounded.FolderOpen
+                        LibraryTab.PLAYLIST -> Icons.Filled.QueueMusic
+                        LibraryTab.ARTISTS -> Icons.Filled.Person
+                        LibraryTab.HISTORY -> Icons.Filled.History
+                    }
+                    Tab(
+                        selected = isSelected,
+                        onClick = { viewModel.selectLibraryTab(tab) },
+                        modifier = Modifier.weight(1f),
+                        text = {
+                            Text(
+                                text = tab.title,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = tab.title,
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(8.dp))
         }
-                Spacer(modifier = Modifier.height(8.dp))
 
         // Tab Content
         Box(modifier = Modifier.weight(1f)) {
             when (state.selectedLibraryTab) {
                 LibraryTab.SONGS -> SongsTabPage(state, viewModel, getTitleArtist)
-                LibraryTab.STORAGE -> StorageTabPage(state, viewModel, getTitleArtist)
+                LibraryTab.STORAGE -> StorageTabPage(
+                    state = state,
+                    viewModel = viewModel,
+                    getTitleArtist = getTitleArtist,
+                    selectedFolderId = selectedStorageFolderId,
+                    onSelectFolder = { selectedStorageFolderId = it }
+                )
                 LibraryTab.PLAYLIST -> PlaylistTabPage(state, viewModel, getTitleArtist)
                 LibraryTab.ARTISTS -> ArtistsTabPage(state, viewModel, getTitleArtist)
                 LibraryTab.HISTORY -> HistoryTabPage(state, viewModel, getTitleArtist)
@@ -1123,7 +1101,7 @@ fun VideosTabPage(
                     val (title, artist) = getTitleArtist(track, if (track.id == state.currentTrack?.id) state.mediaMetadata else null)
                     val isPlaying = track.id == state.currentTrack?.id && state.isPlaying
 
-                    TrackListItem(
+                    VideoCardItem(
                         track = track,
                         displayTitle = title,
                         displayArtist = artist,
@@ -1394,7 +1372,9 @@ fun formatFolderDuration(durationMs: Long): String {
 fun StorageTabPage(
     state: MediaPlayerState,
     viewModel: MediaPlayerViewModel,
-    getTitleArtist: (Track, MediaMetadata?) -> Pair<String, String>
+    getTitleArtist: (Track, MediaMetadata?) -> Pair<String, String>,
+    selectedFolderId: String? = null,
+    onSelectFolder: (String?) -> Unit = {}
 ) {
     val context = LocalContext.current
     val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -1436,7 +1416,10 @@ fun StorageTabPage(
     var editingTrack by remember { mutableStateOf<Track?>(null) }
     var deletingTrack by remember { mutableStateOf<Track?>(null) }
 
-    var selectedFolderId by remember { mutableStateOf<String?>(null) }
+    BackHandler(enabled = selectedFolderId != null) {
+        onSelectFolder(null)
+    }
+
     var displayMode by remember { mutableStateOf(StorageDisplayMode.FOLDERS) }
     var kindFilter by remember { mutableStateOf(MediaKindFilter.ALL) }
     var searchQuery by remember { mutableStateOf("") }
@@ -1581,7 +1564,7 @@ fun StorageTabPage(
                 state = state,
                 viewModel = viewModel,
                 getTitleArtist = getTitleArtist,
-                onBack = { selectedFolderId = null },
+                onBack = { onSelectFolder(null) },
                 onEditTrack = { editingTrack = it },
                 onDeleteTrack = { deletingTrack = it }
             )
@@ -1647,9 +1630,7 @@ fun StorageTabPage(
                     items(filteredFolders, key = { it.id }) { folder ->
                         FolderCardItem(
                             folder = folder,
-                            onFolderClick = { selectedFolderId = folder.id },
-                            onPlayFolder = { viewModel.playTrackList(folder.tracks, 0, shuffle = false) },
-                            onShuffleFolder = { viewModel.playTrackList(folder.tracks, 0, shuffle = true) }
+                            onFolderClick = { onSelectFolder(folder.id) }
                         )
                     }
 
@@ -1781,9 +1762,7 @@ fun StorageTabPage(
 @Composable
 fun FolderCardItem(
     folder: MediaFolder,
-    onFolderClick: () -> Unit,
-    onPlayFolder: () -> Unit,
-    onShuffleFolder: () -> Unit
+    onFolderClick: () -> Unit
 ) {
     val isMostlyVideo = folder.videoCount > folder.audioCount
     val folderIcon = if (isMostlyVideo) Icons.Rounded.VideoLibrary else Icons.Rounded.Folder
@@ -1878,48 +1857,13 @@ fun FolderCardItem(
                 }
             }
 
-            // Quick Play & Shuffle Action Buttons
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                IconButton(
-                    onClick = onPlayFolder,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.PlayArrow,
-                        contentDescription = "Play folder",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onShuffleFolder,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Shuffle,
-                        contentDescription = "Shuffle folder",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                    contentDescription = "Explore folder",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
+            // Clean navigation chevron
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
+                contentDescription = "Explore folder",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -1934,6 +1878,8 @@ fun FolderDetailView(
     onEditTrack: (Track) -> Unit,
     onDeleteTrack: (Track) -> Unit
 ) {
+    BackHandler(onBack = onBack)
+
     var filterType by remember { mutableStateOf(MediaKindFilter.ALL) }
     var folderSearchQuery by remember { mutableStateOf("") }
 
@@ -1953,26 +1899,40 @@ fun FolderDetailView(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Back Navigation Row
+        // Top App Bar for Folder
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            OutlinedButton(
+            IconButton(
                 onClick = onBack,
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                modifier = Modifier.size(42.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = "Back to Folders",
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(22.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("All Folders", style = MaterialTheme.typography.labelMedium)
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = folder.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${folder.tracks.size} items • Storage",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 

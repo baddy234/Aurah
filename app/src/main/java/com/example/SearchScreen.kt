@@ -28,7 +28,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
@@ -682,13 +681,6 @@ fun SearchScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-
-                            Icon(
-                                imageVector = Icons.Filled.ChevronRight,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
                         }
                     }
                 }
@@ -973,15 +965,6 @@ fun SearchScreen(
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                     }
-
-                                    Spacer(modifier = Modifier.width(4.dp))
-
-                                    Icon(
-                                        imageVector = Icons.Filled.ChevronRight,
-                                        contentDescription = "View artist discography",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(20.dp)
-                                    )
                                 }
                             }
                         }
@@ -1054,13 +1037,6 @@ fun SearchScreen(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-
-                                    Icon(
-                                        imageVector = Icons.Filled.ChevronRight,
-                                        contentDescription = "Open Playlist",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(20.dp)
-                                    )
                                 }
                             }
                         }

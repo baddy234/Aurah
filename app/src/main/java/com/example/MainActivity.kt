@@ -87,6 +87,7 @@ class MainActivity : ComponentActivity() {
       intent.getBooleanExtra(PlaybackService.EXTRA_OPEN_AUDIO_PLAYER, false)
     if (isOpenPlayerAction) {
       viewModel.openAudioPlayer()
+      setIntent(Intent())
     }
   }
 }

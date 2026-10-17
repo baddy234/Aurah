@@ -46,7 +46,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ColorLens
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Feedback
@@ -332,12 +331,6 @@ private fun MainSettingsList(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-
-                    Icon(
-                        imageVector = Icons.Filled.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
@@ -627,12 +620,6 @@ private fun SettingsFeatureCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
-            Icon(
-                imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -3052,11 +3039,6 @@ private fun AboutSubPage(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                Icon(
-                    imageVector = Icons.Filled.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
 
@@ -3085,11 +3067,6 @@ private fun AboutSubPage(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                Icon(
-                    imageVector = Icons.Filled.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }

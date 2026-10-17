@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,6 +59,8 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -111,6 +114,8 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -257,34 +262,36 @@ fun MediaPlayerApp(
                     containerColor = MaterialTheme.colorScheme.background,
                     bottomBar = {
                         if (!state.isVideoFullscreen && !state.isVideoPlayerOpen) {
-                            Column(
+                            // Mini player cleanly docked in Scaffold bottomBar with system navigation insets
+                            AnimatedVisibility(
+                                visible = state.currentTrack != null && !state.isBottomSheetVisible && !state.isVideoPlayerOpen && !isExpanded,
+                                enter = slideInVertically(
+                                    initialOffsetY = { it },
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    )
+                                ) + fadeIn(
+                                    animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+                                ) + scaleIn(
+                                    initialScale = 0.95f,
+                                    animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
+                                ),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { it },
+                                    animationSpec = tween(durationMillis = 220, easing = FastOutLinearInEasing)
+                                ) + fadeOut(
+                                    animationSpec = tween(durationMillis = 180)
+                                ) + scaleOut(
+                                    targetScale = 0.95f,
+                                    animationSpec = tween(durationMillis = 200)
+                                ),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                // Mini player cleanly docked in Scaffold bottomBar
-                                AnimatedVisibility(
-                                    visible = state.currentTrack != null && !state.isBottomSheetVisible && !state.isVideoPlayerOpen && !isExpanded,
-                                    enter = slideInVertically(
-                                        initialOffsetY = { it },
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioLowBouncy,
-                                            stiffness = Spring.StiffnessMediumLow
-                                        )
-                                    ) + fadeIn(
-                                        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
-                                    ) + scaleIn(
-                                        initialScale = 0.95f,
-                                        animationSpec = tween(durationMillis = 280, easing = FastOutSlowInEasing)
-                                    ),
-                                    exit = slideOutVertically(
-                                        targetOffsetY = { it },
-                                        animationSpec = tween(durationMillis = 220, easing = FastOutLinearInEasing)
-                                    ) + fadeOut(
-                                        animationSpec = tween(durationMillis = 180)
-                                    ) + scaleOut(
-                                        targetScale = 0.95f,
-                                        animationSpec = tween(durationMillis = 200)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .navigationBarsPadding()
                                 ) {
                                     state.currentTrack?.let { currentTrack ->
                                         val (title, artist) = getTitleArtist(currentTrack, state.mediaMetadata)
@@ -312,7 +319,7 @@ fun MediaPlayerApp(
                                             isDarkTheme = state.isDarkTheme
                                         )
                                     }
-                                 }
+                                }
                             }
                         }
                     }
@@ -589,7 +596,7 @@ fun MediaPlayerApp(
                     progressMs = state.progressMs,
                     durationMs = state.durationMs,
                     playbackSpeed = state.playbackSpeed,
-                    isFullscreen = state.isVideoFullscreen,
+                    isFullscreen = true,
                     lockLandscape = state.videoPrefs.lockLandscapeOrientation,
                     onClose = { viewModel.closeVideoPlayer() },
                     onToggleFullscreen = { viewModel.toggleVideoFullscreen() },
@@ -597,6 +604,8 @@ fun MediaPlayerApp(
                     onSeek = { fraction -> viewModel.seekTo(fraction) },
                     onSeekRelative = { offsetMs -> viewModel.seekRelative(offsetMs) },
                     onSetPlaybackSpeed = { speed -> viewModel.setPlaybackSpeed(speed) },
+                    onSkipPrevious = { viewModel.skipPrevious() },
+                    onSkipNext = { viewModel.skipNext() },
                     onOpenVideoSettings = {
                         viewModel.closeVideoPlayer()
                         viewModel.navigateToSettingsSubPage(SettingsSubPage.VIDEO)
@@ -670,6 +679,10 @@ fun MediaPlayerApp(
                     EditLyricsScreen(
                         currentLyrics = state.currentLyrics,
                         progressMs = if (editingTargetTrack == state.currentTrack) state.progressMs else 0L,
+                        durationMs = if (editingTargetTrack == state.currentTrack) state.durationMs else 0L,
+                        isPlaying = if (editingTargetTrack == state.currentTrack) state.isPlaying else false,
+                        onTogglePlayPause = { viewModel.togglePlayPause() },
+                        onSeekTo = { viewModel.seekToPosition(it) },
                         displayTitle = title,
                         displayArtist = artist,
                         isFetchingLyrics = state.isFetchingLyrics,
@@ -1373,6 +1386,7 @@ fun NowPlayingScreen(
     onUseEqPreset: (Short) -> Unit,
     onSeek: (Float) -> Unit
 ) {
+    val context = LocalContext.current
     val artworkUri = mediaMetadata?.artworkUri?.toString() ?: track.artworkUrl
 
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
@@ -1833,7 +1847,7 @@ fun NowPlayingScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp),
+                .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1857,8 +1871,85 @@ fun NowPlayingScreen(
                 )
             }
         }
+
+        // External Lyrics Action Toolbar (Placed outside the lyrics display section to prevent blocking lyrics)
+        AnimatedVisibility(
+            visible = pagerState.currentPage == 1,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (currentLyrics.isNotBlank()) {
+                        FilledTonalButton(
+                            onClick = {
+                                onSaveLyrics(currentLyrics)
+                                android.widget.Toast.makeText(context, "Lyrics saved to song library ✓", android.widget.Toast.LENGTH_SHORT).show()
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Filled.BookmarkAdd, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Save", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val res = LrcExporter.exportLrcFile(context, displayTitle, displayArtist, currentLyrics)
+                                res.onSuccess { msg -> android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show() }
+                                    .onFailure { android.widget.Toast.makeText(context, "Export failed: ${it.message}", android.widget.Toast.LENGTH_SHORT).show() }
+                            },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Filled.FileDownload, contentDescription = null, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Export .lrc", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { onSetEditingLyrics(true) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Edit & Stamp", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+
+                IconButton(
+                    onClick = onOpenFullScreenLyrics,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Fullscreen,
+                        contentDescription = "Fullscreen Lyrics",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
         
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         
         // Track Info & Favorite Toggle
         Row(
@@ -2279,19 +2370,6 @@ fun NowPlayingOptionsModal(
                 subtitle = "Search LRCLIB database online",
                 onClick = onFetchLyrics
             )
-            NowPlayingOptionItem(
-                icon = Icons.Filled.Star,
-                title = if (track.isVideo) "✨ Generate AI Video Captions" else "✨ Generate AI Lyrics",
-                subtitle = "Powered by Gemini AI",
-                onClick = onGenerateAiContent
-            )
-
-            NowPlayingOptionItem(
-                icon = Icons.Filled.Fullscreen,
-                title = "Fullscreen Lyrics",
-                subtitle = "Immersive karaoke mode",
-                onClick = onOpenFullScreenLyrics
-            )
         }
     }
 }
@@ -2403,6 +2481,14 @@ fun LyricsComponent(
     var editText by remember(lyrics, isEditing) { mutableStateOf(lyrics) }
     var showSearchDialog by remember { mutableStateOf(false) }
 
+    // Automatically close the toast notification after 3.5 seconds
+    LaunchedEffect(lyricsFetchMessage, isFetchingLyrics) {
+        if (lyricsFetchMessage != null && !isFetchingLyrics && !lyricsFetchMessage.endsWith("...")) {
+            kotlinx.coroutines.delay(3500)
+            onClearLyricsMessage()
+        }
+    }
+
     if (showSearchDialog) {
         var queryTitle by remember { mutableStateOf(displayTitle) }
         var queryArtist by remember { mutableStateOf(displayArtist) }
@@ -2471,7 +2557,7 @@ fun LyricsComponent(
         }
     }
 
-    Column(modifier = modifier.fillMaxSize().padding(12.dp)) {
+    Column(modifier = modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 4.dp)) {
         // Fetching indicator or message banner
         if (isFetchingLyrics) {
             LinearProgressIndicator(
@@ -2482,39 +2568,62 @@ fun LyricsComponent(
             )
         }
 
-        if (lyricsFetchMessage != null) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                )
-            ) {
-                Row(
+        AnimatedVisibility(
+            visible = lyricsFetchMessage != null,
+            enter = fadeIn(animationSpec = tween(250)),
+            exit = fadeOut(animationSpec = tween(250))
+        ) {
+            if (lyricsFetchMessage != null) {
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = lyricsFetchMessage,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.weight(1f)
+                        .padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                     )
-                    IconButton(
-                        onClick = onClearLyricsMessage,
-                        modifier = Modifier.size(24.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Dismiss",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(14.dp)
+                        Text(
+                            text = lyricsFetchMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.weight(1f)
                         )
+                        if (lyrics.isNotBlank()) {
+                            Spacer(Modifier.width(6.dp))
+                            FilledTonalButton(
+                                onClick = {
+                                    onSave(lyrics)
+                                    android.widget.Toast.makeText(context, "Lyrics saved to song library ✓", android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(28.dp),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Filled.BookmarkAdd, contentDescription = null, modifier = Modifier.size(12.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Save", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        IconButton(
+                            onClick = onClearLyricsMessage,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Dismiss",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -2600,7 +2709,7 @@ fun LyricsComponent(
                             modifier = Modifier
                                 .weight(1f)
                                 .fillMaxWidth(),
-                            contentPadding = PaddingValues(vertical = 40.dp),
+                            contentPadding = PaddingValues(vertical = 10.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             itemsIndexed(syncedLyrics) { index, line ->
