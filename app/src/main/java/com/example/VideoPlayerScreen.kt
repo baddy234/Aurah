@@ -386,6 +386,9 @@ fun VideoPlayerContent(
                             this.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                             this.setKeepContentOnPlayerReset(true)
                             this.resizeMode = currentResizeMode.mode
+                            this.subtitleView?.setStyle(androidx.media3.ui.CaptionStyleCompat.DEFAULT)
+                            this.subtitleView?.setApplyEmbeddedStyles(true)
+                            this.subtitleView?.setApplyEmbeddedFontSizes(true)
                             layoutParams = FrameLayout.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -626,6 +629,9 @@ fun VideoPlayerContent(
                                     this.setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                                     this.setKeepContentOnPlayerReset(true)
                                     this.resizeMode = currentResizeMode.mode
+                                    this.subtitleView?.setStyle(androidx.media3.ui.CaptionStyleCompat.DEFAULT)
+                                    this.subtitleView?.setApplyEmbeddedStyles(true)
+                                    this.subtitleView?.setApplyEmbeddedFontSizes(true)
                                     layoutParams = FrameLayout.LayoutParams(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.MATCH_PARENT

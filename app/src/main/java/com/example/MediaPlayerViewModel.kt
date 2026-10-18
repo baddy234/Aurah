@@ -676,6 +676,11 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
         if (!track.isVideo) {
             loadLyricsForTrack(track, autoFetchIfMissing = true)
+        } else {
+            player?.trackSelectionParameters = player?.trackSelectionParameters
+                ?.buildUpon()
+                ?.setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, false)
+                ?.build() ?: androidx.media3.common.TrackSelectionParameters.DEFAULT
         }
 
 
@@ -1268,11 +1273,50 @@ class MediaPlayerViewModel(application: Application) : AndroidViewModel(applicat
                     }
                 }
                 is LyricsFetchResult.Error -> {
-                    _state.update {
-                        it.copy(
-                            isFetchingLyrics = false,
-                            lyricsFetchMessage = if (!isSilent) result.message else null
-                        )
+                    var embeddedLyrics: String? = null
+                    try {
+                        val retriever = MediaMetadataRetriever()
+                        val mediaUri = Uri.parse(targetTrack.mediaUrl)
+                        if (mediaUri.scheme == "content" || mediaUri.scheme == "file") {
+                            retriever.setDataSource(getApplication(), mediaUri)
+                        } else {
+                            retriever.setDataSource(targetTrack.mediaUrl, HashMap())
+                        }
+                        embeddedLyrics = retriever.extractMetadata(33) ?: retriever.extractMetadata(1020)
+                        retriever.release()
+                    } catch (e: Exception) {
+                        embeddedLyrics = null
+                    }
+
+                    if (!embeddedLyrics.isNullOrBlank()) {
+                        val fetchedText = embeddedLyrics!!
+                        val currentOverride = _state.value.trackOverrides.find { it.trackId == targetTrack.id }
+                        val title = currentOverride?.title ?: targetTrack.title
+                        val artist = currentOverride?.artist ?: targetTrack.artist
+                        viewModelScope.launch {
+                            repository.insertOverride(com.example.db.TrackOverride(targetTrack.id, title, artist, fetchedText))
+                        }
+                        prefs.edit().putString("lyrics_${targetTrack.id}", fetchedText).apply()
+                        prefs.edit().putString(targetTrack.id, fetchedText).apply()
+                        val parsed = LrcParser.parse(fetchedText)
+                        val pos = if (_state.value.currentTrack?.id == targetTrack.id) (player?.currentPosition ?: _state.value.progressMs) else 0L
+                        val activeIdx = if (parsed.isNotEmpty()) parsed.indexOfLast { it.timeMs <= pos } else -1
+                        _state.update {
+                            it.copy(
+                                currentLyrics = fetchedText,
+                                currentSyncedLyrics = parsed,
+                                activeLyricIndex = activeIdx,
+                                isFetchingLyrics = false,
+                                lyricsFetchMessage = "Loaded lyrics from embedded audio metadata (MediaMetadataRetriever) ✓"
+                            )
+                        }
+                    } else {
+                        _state.update {
+                            it.copy(
+                                isFetchingLyrics = false,
+                                lyricsFetchMessage = if (!isSilent) result.message else null
+                            )
+                        }
                     }
                 }
 
